@@ -4,12 +4,13 @@ import java.util.Scanner
 import java.io.StringBufferInputStream
 import scala.collection.mutable.ListBuffer
 
-class Tableau(val min: Boolean, var c: Matrix, var coefficientiCostoRidotto: Matrix, var A: Matrix, var inBase: ListBuffer[Int], var fuoriBase: ListBuffer[Int], var terminiNoti: Matrix) {    
+class Tableau(val min: Boolean, var coefficientiCostoRidotto: Matrix, var A: Matrix, var inBase: ListBuffer[Int], var fuoriBase: ListBuffer[Int], var terminiNoti: Matrix) {    
 
     var tableau = new Matrix(0,0)
 
     def printTableau = {
         coefficientiCostoRidotto.printMatrix
+        println()
         tableau.printMatrix
         println()
     }
@@ -80,7 +81,7 @@ class Tableau(val min: Boolean, var c: Matrix, var coefficientiCostoRidotto: Mat
         
         var F = A.getCols(fuoriBase.toList).T
         
-        var c_b = c.getCols(inBase.toList).T
+        var c_b = coefficientiCostoRidotto.getCols(inBase.toList).T
         
         var z_b = c_b.mult(BInv).mult(terminiNoti)
         var risOttimo = z_b(0)(0)
@@ -132,75 +133,7 @@ class Tableau(val min: Boolean, var c: Matrix, var coefficientiCostoRidotto: Mat
         println("Ottimo trovato, z = " + (coefficientiCostoRidotto(0)(coefficientiCostoRidotto(0).length-1) * -1))
         
     }
-
-
-    /*def simplex = {
-        
-        var illimitato = false
-        var ottimo = false
-        var risOttimo = 100.0
-
-        while(ottimo == false && illimitato == false) {
-            println(inBase)
-            A.printMatrix
-            var B = A.getCols(inBase.toList).T
-            B.printMatrix
-            var BInv = B.inv
-            
-            var F = A.getCols(fuoriBase.toList).T
-
-            var c_b = c.getCols(inBase.toList).T
-            
-            var c_f = c.getCols(fuoriBase.toList).T
-
-            var u_t = c_b.mult(BInv)
-            var ccr = c_f.sub(u_t.mult(F))
-
-            if (ccr.isPositive && min == true || !ccr.isPositive && min == false)
-                ottimo = true
-            
-            else {
-                var h = varEntrante(ccr)
-                println("Variabile entrante: " + h)
-                var A_ = F.mult(BInv)
-                terminiNoti = BInv.mult(terminiNoti)
-
-                if (A_.leqZero){
-                    illimitato = true
-                    println("Problema illimitato.")
-                }
-                else{
-                    println("Termini noti: ")
-                    terminiNoti.printMatrix
-
-                    println("F * B^-1")
-                    A_.printMatrix
-                    //var t = A_.argmin(h, terminiNoti) + c_b.nCols
-                    println("Variabile uscente: " + t)
-                    //println("Argmin: " + t)
-                    
-                    inBase -= t 
-                    inBase += h
-                    fuoriBase += t
-                    fuoriBase -= h
-
-                }
-            }
-            var x_b = BInv.mult(terminiNoti)
-            println("x_b")
-            x_b.printMatrix
-            println("c_b")
-            c_b.printMatrix
-            
-            risOttimo = c_b.mult(x_b)(0)(0)
-        }
-        if (ottimo && !illimitato){
-            val x_b =  
-            println("Ottimo: " + risOttimo)
-        }
-    }*/
 }
-
 
 class TableauBuilder {
     var c : List[Double] = List()
@@ -232,24 +165,32 @@ class TableauBuilder {
         }
         A = A.slice(1, nvar + segni.length + 1) 
 
+        //Se esiste b_i negativo, lo rendo positivo moltiplicando per -1 A_i e b_i
+        for(i <- 0 until A.length)
+            if(b(i) < 0){
+                A.mat(i) = A(i).map(_ * -1) 
+                b(i) *= -1
+            }
+
         val inBase = trovaBase.to[ListBuffer]
         val fuoriBase = List.range(0, A.nCols).filter(n => !inBase.contains(n)).to[ListBuffer]
-        val c_ = new Matrix(List(c.slice(1, nvar + segni.length + 1)))//.mult(B.inv)
-        val coefficientiCostoRidotto = c_
-        val terminiNoti = new Matrix(List(b.toList).transpose)//.mult(B.inv)
-        val tableau = new Tableau(min, c_, coefficientiCostoRidotto, A, inBase, fuoriBase, terminiNoti)
+
+        val B = A.getCols(inBase.toList).T
+        val coefficientiCostoRidotto = new Matrix(List(c.slice(1, nvar + segni.length + 1)))//.mult(B.inv)
+
+        val terminiNoti = new Matrix(List(b.toList)).mult(B.inv).T
+        val tableau = new Tableau(min, coefficientiCostoRidotto, A, inBase, fuoriBase, terminiNoti)
         tableau
     }
 
     def trovaBase = {
         var varBase : ListBuffer[Int] = ListBuffer()
-        if (A.slice(A(0).length - A.length, A(0).length).equals(MatrixTools.identity(A.length))) {
-/*            print("Base: ")
-            print(List.range(A.length, A(0).length))*/
+        //se l'ultima parte della matrice è uguale alla matrice identità, allora usiamo quella come base iniziale
+        if (A.slice(A(0).length - A.length, A(0).length).equals(MatrixTools.identity(A.length))) { 
             List.range(A(0).length - A.length, A(0).length)
         }
-        else {
-            print("FALSO")
+        else {//TODO: due fasi
+            throw new Exception("TODO: due fasi")
             List()
         }
     }
