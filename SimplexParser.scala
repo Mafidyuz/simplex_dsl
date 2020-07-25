@@ -4,14 +4,15 @@ import scala.collection.mutable.ListBuffer
 class SimplexParser extends JavaTokenParsers {
     val tableauBuilder = new TableauBuilder     
     def problema = (("min" | "max") <~ "z" <~ "=")  ~ funzioneObiettivo ~ ("vincoli" ~> vincoli) ^^ { 
-        case "min" ~ _ ~ _ => 
+        case "min" ~ _ ~ _ => {
             tableauBuilder.min = true
-            val t = tableauBuilder.build
-            t.simplexTableau
-        case "max" ~ _ ~ _ => 
+            tableauBuilder.build
+
+        }   
+        case "max" ~ _ ~ _ => {
             tableauBuilder.min = false
-            val t = tableauBuilder.build
-            t.simplexTableau
+            tableauBuilder.build
+        }
     }   
     def funzioneObiettivo = riga ^^ {arr => tableauBuilder.c = arr}
     def vincoli = rep(riga ~ ("<=" | ">=" | "=") ~ tnoto) ^^ {

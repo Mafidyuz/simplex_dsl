@@ -21,14 +21,21 @@ class TableauBuilder {
 
     def build = {
         val nvar = nVar
+        var nvarScarto = 0
         for (i <- 1 to segni.length){
             segni(i-1) match {
-                case "<=" => A(i-1)(nvar + i) = 1
-                case "=" => A(i-1)(nvar + i) = 0
-                case ">=" => A(i-1)(nvar + i) = -1
+                case "<=" => {
+                    A(i-1)(nvar + nvarScarto + 1) = 1
+                    nvarScarto += 1
+                }
+                case ">=" => {
+                    A(i-1)(nvar + nvarScarto + 1) = -1; 
+                    nvarScarto += 1
+                }
+                case _ => 
             }
         }
-        A = A.slice(1, nvar + segni.length + 1) 
+        A = A.slice(1, nvar + nvarScarto + 1) 
 
         //Se esiste b_i negativo, lo rendo positivo moltiplicando per -1 A_i e b_i
         for(i <- 0 until A.length)
@@ -36,28 +43,35 @@ class TableauBuilder {
                 A.mat(i) = A(i).map(_ * -1) 
                 b(i) *= -1
             }
-
-        val inBase = trovaBase.to[ListBuffer]
-        val fuoriBase = List.range(0, A.nCols).filter(n => !inBase.contains(n)).to[ListBuffer]
-
-        val B = A.getCols(inBase.toList).T
-        val ccr = new Matrix(List(c.slice(1, nvar + segni.length + 1)))//.mult(B.inv)
-
-        val terminiNoti = new Matrix(List(b.toList)).mult(B.inv).T
-        val tableau = new Tableau(min, ccr, A, inBase, fuoriBase, terminiNoti)
-        tableau
-    }
-
-    def trovaBase = {
-        var varBase : ListBuffer[Int] = ListBuffer()
+        
         //se l'ultima parte della matrice è uguale alla matrice identità, allora usiamo quella come base iniziale
         if (A.slice(A(0).length - A.length, A(0).length).equals(MatrixTools.identity(A.length))) { 
-            List.range(A(0).length - A.length, A(0).length)
+            val inBase = List.range(A(0).length - A.length, A(0).length).to[ListBuffer]
+            val fuoriBase = List.range(0, A.nCols).filter(n => !inBase.contains(n)).to[ListBuffer]
+
+            val B = A.getCols(inBase.toList).T
+            val ccr = new Matrix(List(c.slice(1, nvar + nvarScarto + 1)))//.mult(B.inv)
+
+            val terminiNoti = new Matrix(List(b.toList)).mult(B.inv).T
+            val tableau = new Tableau(min, false, ccr, ccr, A, inBase, fuoriBase, terminiNoti)
+            tableau
         }
-        else {//TODO: due fasi
-            throw new Exception("TODO: due fasi")
-            List()
+        else {
+            val dueFasiA = A.concat(MatrixTools.identity(A.length))
+
+            val ccr = new Matrix(List(c.slice(1, nvar + nvarScarto + 1)))//.mult(B.inv)
+
+            val dueFasiCcr = new Matrix(List(List.tabulate(dueFasiA(0).length)(n => if (n < A(0).length) 0 else 1)))
+
+            val dueFasiterminiNoti = new Matrix(List(b.toList)).T
+            val dueFasiFuoriBase = ListBuffer.range(0, A(0).length)
+            val dueFasiInBase = ListBuffer.range(A(0).length, dueFasiA(0).length)
+            
+            val dueFasiTableau = new Tableau(min, true, dueFasiCcr, ccr, dueFasiA, dueFasiInBase, dueFasiFuoriBase, dueFasiterminiNoti)
+            dueFasiTableau.canonicizza_ccr
+            dueFasiTableau
         }
+
     }
 
 }

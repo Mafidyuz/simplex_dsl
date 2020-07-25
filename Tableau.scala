@@ -1,18 +1,91 @@
 import scala.collection.mutable.ListBuffer
 
-class Tableau(val min: Boolean, var ccr: Matrix, var A: Matrix, var inBase: ListBuffer[Int], var fuoriBase: ListBuffer[Int], var terminiNoti: Matrix) {    
+class Tableau(var min: Boolean, var primaFase: Boolean, var ccr: Matrix, var dueFasiCcr: Matrix, var A: Matrix, var inBase: ListBuffer[Int], var fuoriBase: ListBuffer[Int], var terminiNoti: Matrix) {    
+    
+    var B = A.getCols(inBase.toList).T
+    var BInv = B.inv
+    
+    var F = A.getCols(fuoriBase.toList).T
+    
+    var c_b = ccr.getCols(inBase.toList).T
+    
+    var z_b = c_b.mult(BInv).mult(terminiNoti)
 
-    var tableau = new Matrix(0,0)
+    var minDueFasi = true
 
-    def printTableau = {
-        ccr.printMatrix
-        println()
-        tableau.printMatrix
-        println()
+    ccr = ccr.concat(z_b)
+    
+    var tableau = BInv.mult(F).concat(B.mult(BInv)).concat(terminiNoti)
+
+    def printNomeVariabile(x: Int) = {
+        if (primaFase && x + 1 >= ccr.nCols - A.nRows) 
+            print("y"+ (x - ccr.nCols + A.nRows + 2) + " ")
+        else 
+            print("x"+ (x + 1) + " ")
     }
 
+    def getNomiVariabiliInBase = {
+        var ls : ListBuffer[String]= ListBuffer()
+        for (x <- inBase){
+            if (primaFase && x + 1 >= ccr.nCols - A.nRows) 
+                ls += ("y"+ (x - ccr.nCols + A.nRows + 2))
+            else 
+                ls += ("x"+ (x + 1))
+        }
+        ls.toList
+    }
+
+    def printTableau = {
+        print("T\t")
+        if(primaFase){
+            for(i <- 1 until ccr.nCols - A.nRows)
+            print("x" + i + "\t")
+            for(i <- 1 until A.nRows + 1)
+            print("y" + i + "\t")
+        }
+        else {
+            for(i <- 1 until ccr.nCols)
+            print("x" + i + "\t")
+        }
+        println("-z")
+        print("ccr\t")
+        ccr.printMatrix
+        println()
+        tableau.printMatrixWithVariables(getNomiVariabiliInBase)
+        println()
+        /*print("Variabili in base: ")
+        for (i <- 0 until inBase.length){
+            printNomeVariabile(inBase(i))
+        }
+        println()
+        print("Variabili fuori base: " )
+        for (i <- 0 until fuoriBase.length){
+            printNomeVariabile(fuoriBase(i))
+        }
+        println()*/
+
+    }
+
+    def canonicizza_ccr = {
+        ccr(0)(ccr.nCols - 1) = 0
+        println("Tableau non canonico rispetto alla funzione obiettivo: ")
+        printTableau
+        println("=================================================================\n")
+        for (i <- 0 until inBase.length){
+            if (ccr(0)(inBase(i)) != 0) {
+                var mult = ccr(0)(inBase(i))
+                for(j <- 0 until ccr.nCols){
+                    ccr(0)(j) -= (tableau.concat(terminiNoti)(i)(j) * mult)
+                }
+            }
+        }
+        if(primaFase)
+            ccr(0)(ccr.nCols - 1) = z_b(0)(0) * -1
+    }
+
+
     def varEntrante: Int = { //regola di bland
-        for(h <- 0 until ccr(0).length){
+        for(h <- 0 until ccr.nCols){
             if((ccr(0)(h) < 0 && min && fuoriBase.contains(h)) || (ccr(0)(h) > 0 && !min && fuoriBase.contains(h)) )
                 return h 
         }
@@ -20,7 +93,7 @@ class Tableau(val min: Boolean, var ccr: Matrix, var A: Matrix, var inBase: List
     } 
 
     def isOttimo: Boolean = { //Se non esistono coefficienti
-        for(i <- 0 until ccr(0).length){
+        for(i <- 0 until ccr.nCols){
             if((ccr(0)(i) < 0 && fuoriBase.contains(i) && min) || (ccr(0)(i) > 0 && fuoriBase.contains(i) && !min))
                 return false
         } 
@@ -29,7 +102,7 @@ class Tableau(val min: Boolean, var ccr: Matrix, var A: Matrix, var inBase: List
 
     def argmin(h: Int): Int = {
         var A_h = tableau.getCol(h)
-        var b_t = tableau.getCol(tableau(0).length - 1)
+        var b_t = tableau.getCol(tableau.nCols - 1)
         
         var t = -1
         var argMin = Double.MaxValue
@@ -49,73 +122,84 @@ class Tableau(val min: Boolean, var ccr: Matrix, var A: Matrix, var inBase: List
         var pivot = tableau(row)(col)
         println("Elemento di pivot: " + pivot + " row: " + (row+1) + " col: " + col )
         
-        for (j <- 0 until tableau(0).length)
+        for (j <- 0 until tableau.nCols)
             tableau(row)(j) /= pivot
         
         for (i <- 0 until tableau.length){
 
             if (i != row){
                 var mult = tableau(i)(col)
-                for (j <- 0 until tableau(0).length)
+                for (j <- 0 until tableau.nCols)
                     tableau(i)(j) -= (tableau(row)(j) * mult) 
             }
         }
         var mult = ccr(0)(col)
-        for (j <- 0 until ccr(0).length)
+        for (j <- 0 until ccr.nCols)
             ccr(0)(j) -= (tableau(row)(j) * mult) 
     }
 
     def isIllimitato(h: Int) = tableau.getCol(h).forall(n => n <= 0) 
-
-    def simplexTableau = {
-        
-        var illimitato = false
-
-        var B = A.getCols(inBase.toList).T
-        var BInv = B.inv
-        
-        var F = A.getCols(fuoriBase.toList).T
-        
-        var c_b = ccr.getCols(inBase.toList).T
-        
-        var z_b = c_b.mult(BInv).mult(terminiNoti)
-
-        ccr = (ccr.concat(z_b))
-        
-        this.tableau = BInv.mult(F).concat(B.mult(BInv)).concat(terminiNoti)
+    
+    def simplexTableau: Unit = {
+        if (primaFase) {
+            minDueFasi = min 
+            min = true
+        }
         
         println("Tableau iniziale: ")
 
-        while(isOttimo == false && illimitato == false){
+        while(isOttimo == false){
 
             printTableau
-            println("Variabili in base: " + inBase.map(n => "x"+(n+1)))
-            println("Variabili fuori base: " + fuoriBase.map(n => "x"+(n+1)))
             
             var h = varEntrante
             
-            if (isIllimitato(h)){
-                illimitato = true
-                throw new Exception("Problema Illimitato")
-            }
+            if (isIllimitato(h)) throw new ProblemaIllimitatoException
             
-            println("Variabile entrante: x" + (h+1))
+            print("Variabile entrante: " )
+            printNomeVariabile(h)
+            println()
             
             var t = argmin(h)
-            println("Variabile uscente: x" + (t+1))
+            print("Variabile uscente: ")
+            printNomeVariabile(t)
+            println()
             
             passoPivot(h,t)
-            println("=================================================================\n")
 
             inBase(inBase.indexOf(t)) = h 
             fuoriBase(fuoriBase.indexOf(h)) = t
-
+            println("=================================================================\n")
         }
-        println("\nVariabili in base: " + inBase.map(n => "x"+(n+1)))
-        println("Variabili fuori base: " + fuoriBase.map(n => "x"+(n+1)))
         printTableau
+        println("=================================================================\n")
 
-        println("Ottimo trovato, z = " + (ccr(0)(ccr(0).length-1) * -1))
-        
+
+        println("Ottimo trovato, z = %.2f".format(ccr(0)(ccr.nCols-1) * -1))
+
+        if (primaFase){
+            println("========================= SECONDA FASE ==========================")
+            secondaFase
+        }
+    }
+
+    def secondaFase = {
+        if (Math.round((ccr(0)(ccr.nCols - 1)*100.0)/100.0) != 0 ){ //se z_b != 0
+            throw new BaseInamissibileException
+        }
+        else if (inBase.exists(n => n > A.nCols)) { 
+            throw new BaseDegenereException //TODO: Gestire basi degeneri
+        }
+        else {
+            min = minDueFasi
+            primaFase = false
+            tableau = tableau.getCols(List.range(0,A.nCols - A.length) ++ List(tableau.nCols - 1)).T
+            
+            fuoriBase = fuoriBase.filter(n => n < A.nCols - A.length)
+            
+            ccr = dueFasiCcr.concat(new Matrix(List(List(0))))
+            canonicizza_ccr
+            simplexTableau
+        }
     }
 }
