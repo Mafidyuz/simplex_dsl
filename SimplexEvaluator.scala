@@ -12,7 +12,7 @@ object SimplexEvaluator {
                 } catch {
                     case e: ProblemaIllimitatoException => println("Problema illimitato.")
                     case e: BaseInamissibileException => println("Base inammissibile.")
-                    case e: BaseDegenereException => println("Base degenere.")
+                    case e: BaseDegenereException => println("Base degenere, da gestire.")
                 }
             case x => print(x.toString)
         }

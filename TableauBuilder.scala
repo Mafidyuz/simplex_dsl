@@ -7,7 +7,7 @@ class TableauBuilder {
     var segni = new ListBuffer[String]()
     var min = true
 
-
+    //numero variabili presenti
     def nVar = {
         var n = 0
         for (j <- 0 until A(0).length) {
@@ -19,6 +19,7 @@ class TableauBuilder {
         n
     }
 
+    //aggiungo le variabili di scarto in base al segno verso della disuguaglianza
     def build = {
         val nvar = nVar
         var nvarScarto = 0
@@ -56,6 +57,8 @@ class TableauBuilder {
             val tableau = new Tableau(min, false, ccr, ccr, A, inBase, fuoriBase, terminiNoti)
             tableau
         }
+
+        //altrimenti, concateniamo una matrice identità ad A e troviamo una base ammissibile con il metodo a due fasi
         else {
             val dueFasiA = A.concat(MatrixTools.identity(A.length))
 

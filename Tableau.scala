@@ -66,6 +66,7 @@ class Tableau(var min: Boolean, var primaFase: Boolean, var ccr: Matrix, var due
 
     }
 
+    //operazioni di pivot per rendere canonica la prima riga del tableau
     def canonicizza_ccr = {
         ccr(0)(ccr.nCols - 1) = 0
         println("Tableau non canonico rispetto alla funzione obiettivo: ")
@@ -83,16 +84,17 @@ class Tableau(var min: Boolean, var primaFase: Boolean, var ccr: Matrix, var due
             ccr(0)(ccr.nCols - 1) = z_b(0)(0) * -1
     }
 
-
-    def varEntrante: Int = { //regola di bland
+    //scelgo la variabile entrante con la regola di bland
+    def varEntrante: Int = { 
         for(h <- 0 until ccr.nCols){
             if((ccr(0)(h) < 0 && min && fuoriBase.contains(h)) || (ccr(0)(h) > 0 && !min && fuoriBase.contains(h)) )
                 return h 
         }
-        return -1
+        throw new RegolaDiBlandException
     } 
 
-    def isOttimo: Boolean = { //Se non esistono coefficienti
+    //Se non esistono coefficienti di costo ridotto fuori base negativi (min) o positivi (max), siamo in condizioni di ottimalità 
+    def isOttimo: Boolean = {
         for(i <- 0 until ccr.nCols){
             if((ccr(0)(i) < 0 && fuoriBase.contains(i) && min) || (ccr(0)(i) > 0 && fuoriBase.contains(i) && !min))
                 return false
@@ -100,6 +102,7 @@ class Tableau(var min: Boolean, var primaFase: Boolean, var ccr: Matrix, var due
         return true
     }
 
+    //scelgo l'argomento minimo candidato per uscire dalla base corrente con la regola di bland
     def argmin(h: Int): Int = {
         var A_h = tableau.getCol(h)
         var b_t = tableau.getCol(tableau.nCols - 1)
@@ -116,6 +119,7 @@ class Tableau(var min: Boolean, var primaFase: Boolean, var ccr: Matrix, var due
         return t
     }
 
+    //passo di pivot con elemento di pivot A_{t,h}
     def passoPivot(h: Int, t: Int) = {
         val row = inBase.indexOf(t)
         val col = h
@@ -126,7 +130,6 @@ class Tableau(var min: Boolean, var primaFase: Boolean, var ccr: Matrix, var due
             tableau(row)(j) /= pivot
         
         for (i <- 0 until tableau.length){
-
             if (i != row){
                 var mult = tableau(i)(col)
                 for (j <- 0 until tableau.nCols)
@@ -138,8 +141,10 @@ class Tableau(var min: Boolean, var primaFase: Boolean, var ccr: Matrix, var due
             ccr(0)(j) -= (tableau(row)(j) * mult) 
     }
 
+    //Se tutti gli elementi della colonna h sono <= 0, problema illimitato
     def isIllimitato(h: Int) = tableau.getCol(h).forall(n => n <= 0) 
     
+    //Simplesso utilizzando il tableau
     def simplexTableau: Unit = {
         if (primaFase) {
             minDueFasi = min 
@@ -183,13 +188,17 @@ class Tableau(var min: Boolean, var primaFase: Boolean, var ccr: Matrix, var due
         }
     }
 
+    //Seconda fase del metodo a due fasi
     def secondaFase = {
-        if (Math.round((ccr(0)(ccr.nCols - 1)*100.0)/100.0) != 0 ){ //se z_b != 0
+        //se z_b != 0, base inammissibile
+        if (Math.round((ccr(0)(ccr.nCols - 1)*100.0)/100.0) != 0 ){ 
             throw new BaseInamissibileException
         }
+        //Se z_b == 0 ma abbiamo variabili y in base, base degenere. In questo caso il problema è gestibile
         else if (inBase.exists(n => n > A.nCols)) { 
             throw new BaseDegenereException //TODO: Gestire basi degeneri
         }
+        //se z_b == 0 e non abbiamo variabili y in base partiamo con la seconda fase
         else {
             min = minDueFasi
             primaFase = false
